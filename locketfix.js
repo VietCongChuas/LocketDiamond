@@ -1,68 +1,157 @@
 /***********************************************
- > Author:  VietCongChuas
+ > Tác giả: VietCongChuas
  > Repo: LocketDiamond
+ > Mục đích: Mở khóa Locket Gold cho tất cả API
 ***********************************************/
 
-// ========= Giữ nguyên mapping của bản gốc (QUAN TRỌNG) ========= //
-const mapping = {
-  '%E8%BD%A6%E7%A5%A8%E7%A5%A8': ['vip+watch_vip'],
-  'Locket': ['Gold'] // KHÔNG ĐỔI: App Locket tìm key này
-};
-
-// ========= Đặt ngày tham gia (CÓ THỂ ĐỔI) ========= //
-var specificDate = "2026-06-22T00:00:00Z"; // Sếp có thể đổi thành ngày hiện tại
-
-// ========= Xử lý Response ========= //
-try {
-  var obj = JSON.parse($response.body);
-} catch (e) {
-  console.log("Lỗi parse response:", e);
-  $done({});
+// Hàm xử lý lỗi parse JSON
+function safeJSONParse(data) {
+    try {
+        return JSON.parse(data);
+    } catch (e) {
+        console.log("Lỗi parse JSON:", e);
+        return null;
+    }
 }
 
-// Đảm bảo các key tồn tại
-if (!obj.subscriber) obj.subscriber = {};
-if (!obj.subscriber.entitlements) obj.subscriber.entitlements = {};
-if (!obj.subscriber.subscriptions) obj.subscriber.subscriptions = {};
-
-// ========= Tạo thông tin gói (GIỮ NGUYÊN CẤU TRÚC) ========= //
-var xunn = {
-  is_sandbox: false,
-  ownership_type: "PURCHASED",
-  billing_issues_detected_at: null,
-  period_type: "normal",
-  expires_date: "2099-12-18T01:04:17Z", // GIỮ NGUYÊN: ngày hết hạn dài
-  grace_period_expires_date: null,
-  unsubscribe_detected_at: null,
-  original_purchase_date: specificDate, // Chỉ đổi ngày mua
-  purchase_date: specificDate,          // Chỉ đổi ngày mua
-  store: "app_store"
-};
-
-var xunn_entitlement = {
-  grace_period_expires_date: null,
-  purchase_date: specificDate, // Chỉ đổi ngày mua
-  product_identifier: "com.xunn.premium.yearly", // GIỮ NGUYÊN: Locket dùng identifier này
-  expires_date: "2099-12-18T01:04:17Z" // GIỮ NGUYÊN
-};
-
-// ========= Áp dụng Mapping (GIỮ NGUYÊN LOGIC) ========= //
-var ua = $request.headers["User-Agent"] || $request.headers["user-agent"];
-const match = Object.keys(mapping).find(e => ua.includes(e));
-
-if (match) {
-  let entitlementKey = mapping[match][0];
-  let subscriptionKey = mapping[match][1];
-  obj.subscriber.subscriptions[subscriptionKey] = xunn;
-  obj.subscriber.entitlements[entitlementKey] = xunn_entitlement;
-} else {
-  // Fallback mặc định - GIỮ NGUYÊN tên key
-  obj.subscriber.subscriptions["com.hoangvanbao.premium.yearly"] = xunn;
-  obj.subscriber.entitlements["Locket"] = xunn_entitlement; // GIỮ NGUYÊN
+// Hàm tạo object subscription giả
+function createFakeSubscription(purchaseDate, expireDate) {
+    return {
+        is_sandbox: false,
+        ownership_type: "PURCHASED",
+        billing_issues_detected_at: null,
+        period_type: "normal",
+        expires_date: expireDate || "2099-12-31T23:59:59Z",
+        grace_period_expires_date: null,
+        unsubscribe_detected_at: null,
+        original_purchase_date: purchaseDate || "2026-06-22T00:00:00Z",
+        purchase_date: purchaseDate || "2026-06-22T00:00:00Z",
+        store: "app_store"
+    };
 }
 
-// ========= Thông báo (CÓ THỂ SỬA) ========= //
-obj.Notice = "Tạo bởi VietCongChuas";
+// Hàm tạo object entitlement giả
+function createFakeEntitlement(purchaseDate, expireDate) {
+    return {
+        grace_period_expires_date: null,
+        purchase_date: purchaseDate || "2026-06-22T00:00:00Z",
+        product_identifier: "locket.premium",
+        expires_date: expireDate || "2099-12-31T23:59:59Z"
+    };
+}
 
-// ========= Trả kết quả ========= //
-$done({ body: JSON.stringify(obj) });
+// Bắt đầu xử lý
+var body = $response.body;
+if (!body) {
+    console.log("Response body rỗng, bỏ qua.");
+    $done({});
+}
+
+var obj = safeJSONParse(body);
+if (!obj) {
+    console.log("Không parse được JSON, bỏ qua.");
+    $done({});
+}
+
+// ======== XỬ LÝ CHO API /subscribers ======== //
+if (obj.subscriber) {
+    console.log("Xử lý subscriber...");
+    
+    // Đảm bảo các key tồn tại
+    if (!obj.subscriber.entitlements) obj.subscriber.entitlements = {};
+    if (!obj.subscriber.subscriptions) obj.subscriber.subscriptions = {};
+    
+    // Fake Gold - dùng nhiều tên entitlement để chắc chắn
+    var goldEntitlements = ["Gold", "gold", "premium", "locket_gold"];
+    var goldSubscriptions = ["locket.premium", "com.locket.premium", "locket_gold_monthly"];
+    
+    // Thêm entitlement Gold
+    goldEntitlements.forEach(function(key) {
+        obj.subscriber.entitlements[key] = createFakeEntitlement();
+    });
+    
+    // Thêm subscription Gold
+    goldSubscriptions.forEach(function(key) {
+        obj.subscriber.subscriptions[key] = createFakeSubscription();
+    });
+    
+    // Xóa các trường gây lỗi (nếu có)
+    if (obj.subscriber.entitlements && obj.subscriber.entitlements._list) {
+        delete obj.subscriber.entitlements._list;
+    }
+    
+    // Thêm thông báo thành công
+    obj._notice = "Locket Gold by VietCongChuas";
+    obj._mod_time = new Date().toISOString();
+}
+
+// ======== XỬ LÝ CHO API /offerings ======== //
+if (obj.offerings) {
+    console.log("Xử lý offerings...");
+    
+    // Nếu có current offerings, đánh dấu là Gold
+    if (obj.offerings.current) {
+        obj.offerings.current.identifier = "gold";
+        obj.offerings.current.availablePackages = obj.offerings.current.availablePackages || [];
+        // Thêm package Gold vào offerings
+        obj.offerings.current.availablePackages.push({
+            identifier: "gold_monthly",
+            platformProductIdentifier: "locket.premium",
+            product: {
+                identifier: "locket.premium",
+                price: 0,
+                priceString: "0$",
+                currencyCode: "USD",
+                localizedPriceString: "Free"
+            }
+        });
+    }
+    
+    // Thêm offerings Gold mới
+    obj.offerings.gold = {
+        identifier: "gold",
+        availablePackages: [{
+            identifier: "gold_monthly",
+            platformProductIdentifier: "locket.premium",
+            product: {
+                identifier: "locket.premium",
+                price: 0,
+                priceString: "0$",
+                currencyCode: "USD",
+                localizedPriceString: "Free"
+            }
+        }]
+    };
+}
+
+// ======== XỬ LÝ CHO API /receipts ======== //
+if (obj.receipt) {
+    console.log("Xử lý receipts...");
+    obj.receipt.is_active = true;
+    obj.receipt.expires_date = "2099-12-31T23:59:59Z";
+    obj.receipt.product_identifier = "locket.premium";
+}
+
+// ======== XỬ LÝ TRƯỜNG HỢP RESPONSE CHỨA DATA ======== //
+if (obj.data && obj.data.subscriber) {
+    console.log("Xử lý data.subscriber...");
+    if (!obj.data.subscriber.entitlements) obj.data.subscriber.entitlements = {};
+    obj.data.subscriber.entitlements["Gold"] = createFakeEntitlement();
+}
+
+// ======== XỬ LÝ CHO API /subscribers/.../offerings ======== //
+// Nếu response có cả subscriber và offerings
+if (obj.subscriber && obj.offerings) {
+    console.log("Xử lý response hỗn hợp subscriber + offerings...");
+    // Đã xử lý ở trên, chỉ thêm thông báo
+    obj._status = "gold_active";
+}
+
+// ======== LOG KIỂM TRA ======== //
+console.log("Locket Gold đã được kích hoạt bởi VietCongChuas!");
+console.log("Entitlements:", Object.keys(obj.subscriber?.entitlements || {}));
+console.log("Subscriptions:", Object.keys(obj.subscriber?.subscriptions || {}));
+
+// ======== TRẢ KẾT QUẢ ======== //
+var newBody = JSON.stringify(obj);
+$done({ body: newBody });
