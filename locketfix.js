@@ -1,70 +1,67 @@
 /***********************************************
  > Author:  VietCongChuas
 ***********************************************/
-var specificDate = "2026-06-22T00:00:00Z"; // Định dạng ISO 8601
+// revenuecat.js - Bypass xác thực trạng thái thuê bao Locket Gold
+let url = $request.url;
+let method = $request.method;
 
-// ========= ID Mapping ========= //
-const mapping = {
-  '%E8%BD%A6%E7%A5%A8%E7%A5%A8': ['vip+watch_vip'],
-  'Locket': ['Gold'] // Đảm bảo rằng Locket Gold được sử dụng đúng cách
-};
-
-// ========= Kiểm tra và Khởi tạo ========= //
-var ua = $request.headers["User-Agent"] || $request.headers["user-agent"];
-
-// Bắt lỗi khi parsing response
-try {
-  var obj = JSON.parse($response.body);
-} catch (e) {
-  console.log("Error parsing response body:", e);
-  $done({}); // Trả kết quả trống nếu lỗi xảy ra
+// Hàm ép trạng thái subscriber thành Gold đến 25/11/2027
+function forceGold(body) {
+    try {
+        let data = JSON.parse(body);
+        if (!data.subscriber) return body;
+        // Thiết lập quyền Gold
+        data.subscriber.entitlements = {
+            "gold": {
+                "expires_date": "2027-11-25T23:59:59Z",
+                "product_identifier": "gold_lifetime",
+                "purchase_date": "2027-11-25T00:00:00Z",
+                "is_sandbox": false,
+                "unsubscribe_detected_at": null,
+                "grace_period_expires_date": null,
+                "ownership_type": "PURCHASED",
+                "store": "app_store"
+            }
+        };
+        // Ghi đè danh sách gói đang hoạt động
+        data.subscriber.active_subscriptions = ["gold_lifetime"];
+        data.subscriber.first_seen = "2027-11-25T00:00:00Z";
+        data.subscriber.original_app_user_id = data.subscriber.original_app_user_id || "fake_user_gold";
+        data.subscriber.original_application_version = "1.0.0";
+        // Xóa các trường báo lỗi nếu có
+        delete data.subscriber.nonce;
+        delete data.subscriber.management_url;
+        return JSON.stringify(data);
+    } catch (e) {
+        return body;
+    }
 }
 
-// Đảm bảo các key cơ bản tồn tại
-if (!obj.subscriber) obj.subscriber = {};
-if (!obj.subscriber.entitlements) obj.subscriber.entitlements = {};
-if (!obj.subscriber.subscriptions) obj.subscriber.subscriptions = {};
-
-// ========= Tạo thông tin gói Locket Gold ========= //
-var xunn = {
-  is_sandbox: false,
-  ownership_type: "PURCHASED",
-  billing_issues_detected_at: null,
-  period_type: "normal",
-  expires_date: "2099-12-18T01:04:17Z", // Ngày hết hạn lâu dài
-  grace_period_expires_date: null,
-  unsubscribe_detected_at: null,
-  original_purchase_date: specificDate,  // Ngày tham gia
-  purchase_date: specificDate,          // Ngày mua
-  store: "app_store"
-};
-
-var xunn_entitlement = {
-  grace_period_expires_date: null,
-  purchase_date: specificDate, // Ngày tham gia
-  product_identifier: "com.xunn.premium.yearly",
-  expires_date: "2099-12-18T01:04:17Z" // Ngày hết hạn lâu dài
-};
-
-// ========= Áp dụng Mapping ========= //
-const match = Object.keys(mapping).find(e => ua.includes(e));
-
-if (match) {
-  let entitlementKey = mapping[match][0] || "Locket";
-  let subscriptionKey = mapping[match][1] || "com.xunn.premium.yearly";
-
-  obj.subscriber.subscriptions[subscriptionKey] = xunn;
-  obj.subscriber.entitlements[entitlementKey] = xunn_entitlement;
+if (url.includes("/receipts") || url.includes("/subscribers/")) {
+    // Nếu là request POST (gửi receipt) - can thiệp body gửi đi
+    if (method === "POST" && url.includes("/receipts")) {
+        let reqBody = $request.body;
+        if (reqBody) {
+            try {
+                let obj = JSON.parse(reqBody);
+                // Ép receipt thành hợp lệ
+                obj.attributes = obj.attributes || {};
+                obj.attributes.product_identifier = "gold_lifetime";
+                obj.attributes.price = 0;
+                $done({ body: JSON.stringify(obj) });
+            } catch (e) {
+                $done({});
+            }
+        } else {
+            $done({});
+        }
+    }
+    // Nếu là response (GET /subscribers hoặc POST receipt trả về)
+    else {
+        let body = $response.body;
+        let modified = forceGold(body);
+        $done({ body: modified });
+    }
 } else {
-  // Gán mặc định nếu không có khớp
-  obj.subscriber.subscriptions["com.hoangvanbao.premium.yearly"] = xunn;
-  obj.subscriber.entitlements["Locket"] = xunn_entitlement;
+    $done({});
 }
-
-// ========= Thêm thông báo và Log ========= //
-obj.Attention = "Mod by VietCongChuas";
-console.log("User-Agent:", ua);
-console.log("Final Modified Response:", JSON.stringify(obj, null, 2));
-
-// ========= Trả kết quả cuối cùng ========= //
-$done({ body: JSON.stringify(obj) });
