@@ -1,6 +1,5 @@
-#!name=Locket Diamond - Tạo bởi VietCongChuas
-#!desc=Mở khóa Premium Locket Widget bằng VPN
-#!author=VietCongChuas
+#!name=Locket Gold VietCongChuas
+#!desc=Mở khoá premium cho ứng dụng Locket Widget
 
 [General]
 user-agent = Locket/1.0.0 (iPhone; iOS 26.3; Scale/3.00)
@@ -8,7 +7,7 @@ user-agent = Locket/1.0.0 (iPhone; iOS 26.3; Scale/3.00)
 [Script]
 # ~ Enhanced for Shadowrocket, Surge, & LanceX
 revenuecat = type=http-response, pattern=^https:\/\/api\.revenuecat\.com\/.*\/(receipts$|subscribers\/[^/]+$), script-path=https://raw.githubusercontent.com/VietCongChuas/LocketDiamond/main/locketfix.js, requires-body=true, max-size=-1, timeout=120
-deleteHeader = type=http-request, pattern=^https:\/\/api\.revenuecat\.com\/.*\/(receipts|subscribers), script-path=https://raw.githubusercontent.com/VietCongChuas/LocketDiamond/main/header.js, timeout=120
+deleteHeader = type=http-request, pattern=^https:\/\/api\.revenuecat\.com\/.*\/(receipts|subscribers), script-path=https://raw.githubusercontent.comVietCongChuas/LocketDiamond/main/header.js, timeout=120
 
 [MITM]
-hostname = api.revenuecat.com, raw.githubusercontent.com
+hostname = api.revenuecat.com, raw.githubusercontent.coms
