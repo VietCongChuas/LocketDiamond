@@ -1,18 +1,17 @@
-const version = 'V1.0.3';
-
-function setHeaderValue(e, a, d) {
-  var r = a.toLowerCase();
-  r in e ? e[r] = d : e[a] = d;
-}
-
-// Lấy headers hiện tại từ request
-var modifiedHeaders = $request.headers;
-
-// Thay đổi giá trị của X-RevenueCat-ETag
-setHeaderValue(modifiedHeaders, "X-RevenueCat-ETag", "");
-
-// Debug: In header đã sửa (tuỳ chọn)
-console.log("Modified Headers:", JSON.stringify(modifiedHeaders));
-
-// Kết thúc request với header đã sửa đổi
-$done({ headers: modifiedHeaders });
+// deleteHeader.js - VietCongChuas
+// Updated deleteHeader.js
+let headers = $request.headers;
+// Xóa token và header đặc trưng của Locket/RevenueCat
+delete headers["Authorization"];
+delete headers["X-Platform"];
+delete headers["X-Version"];
+delete headers["X-Client-Build"];
+delete headers["X-Client-Date"];
+delete headers["X-Client-Timezone"];
+delete headers["X-Device-Id"];
+delete headers["X-App-Build"];
+delete headers["X-Storefront"];
+delete headers["If-None-Match"];
+// Giả mạo User-Agent iOS
+headers["User-Agent"] = "Locket/1.0 CFNetwork/1404.0.5 Darwin/22.3.0";
+$done({ headers: headers });
